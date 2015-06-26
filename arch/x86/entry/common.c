@@ -209,10 +209,22 @@ __visible inline void prepare_exit_to_usermode(struct pt_regs *regs)
 	lockdep_assert_irqs_disabled();
 	lockdep_sys_exit();
 
+again:
 	cached_flags = READ_ONCE(ti->flags);
 
 	if (unlikely(cached_flags & EXIT_TO_USERMODE_LOOP_FLAGS))
 		exit_to_usermode_loop(regs, cached_flags);
+
+	if (ipipe_user_intret_notifier_enabled(ti)) {
+		int ret;
+
+		enable_local_irqs();
+		ret = __ipipe_notify_user_intreturn();
+		disable_local_irqs();
+
+		if (ret == 0)
+			goto again;
+	}
 
 #ifdef CONFIG_COMPAT
 	/*
