@@ -223,6 +223,7 @@ struct kvm_vcpu {
 #endif
 #ifdef CONFIG_IPIPE
 	struct ipipe_vm_notifier ipipe_notifier;
+	bool ipipe_put_vcpu;
 #endif
 	int cpu;
 	int vcpu_id;
