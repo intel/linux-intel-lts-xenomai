@@ -153,9 +153,9 @@ void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	switch_mm_irqs_off(prev, next, tsk);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static void sync_current_stack_to_mm(struct mm_struct *mm)
@@ -274,7 +274,7 @@ void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 {
 	struct mm_struct *real_prev = this_cpu_read(cpu_tlbstate.loaded_mm);
 	u16 prev_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
-	unsigned cpu = smp_processor_id();
+	unsigned cpu = raw_smp_processor_id();
 	u64 next_tlb_gen;
 
 	/*
@@ -286,8 +286,11 @@ void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 	 * NB: leave_mm() calls us with prev == NULL and tsk == NULL.
 	 */
 
+	WARN_ON_ONCE(IS_ENABLED(CONFIG_IPIPE_DEBUG_INTERNAL) &&
+		     !hard_irqs_disabled());
+
 	/* We don't want flush_tlb_func_* to run concurrently with us. */
-	if (IS_ENABLED(CONFIG_PROVE_LOCKING))
+	if (!IS_ENABLED(CONFIG_IPIPE) && IS_ENABLED(CONFIG_PROVE_LOCKING))
 		WARN_ON_ONCE(!irqs_disabled());
 
 	/*
@@ -519,6 +522,7 @@ static void flush_tlb_func_common(const struct flush_tlb_info *f,
 	u32 loaded_mm_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
 	u64 mm_tlb_gen = atomic64_read(&loaded_mm->context.tlb_gen);
 	u64 local_tlb_gen = this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
+	unsigned long flags;
 
 	/* This code cannot presently handle being reentered. */
 	VM_WARN_ON(!irqs_disabled());
@@ -536,7 +540,9 @@ static void flush_tlb_func_common(const struct flush_tlb_info *f,
 		 * garbage into our TLB.  Since switching to init_mm is barely
 		 * slower than a minimal flush, just switch to init_mm.
 		 */
+		flags = hard_cond_local_irq_save();
 		switch_mm_irqs_off(NULL, &init_mm, NULL);
+		hard_cond_local_irq_restore(flags);
 		return;
 	}
 
