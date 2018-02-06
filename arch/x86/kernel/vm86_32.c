@@ -147,12 +147,14 @@ void save_v86_state(struct kernel_vm86_regs *regs, int retval)
 	}
 
 	preempt_disable();
+	hard_cond_local_irq_disable();
 	tsk->thread.sp0 = vm86->saved_sp0;
 	tsk->thread.sysenter_cs = __KERNEL_CS;
 	update_task_stack(tsk);
 	refresh_sysenter_cs(&tsk->thread);
 	vm86->saved_sp0 = 0;
 	preempt_enable();
+	hard_cond_local_irq_enable();
 
 	memcpy(&regs->pt, &vm86->regs32, sizeof(struct pt_regs));
 
@@ -365,6 +367,7 @@ static long do_sys_vm86(struct vm86plus_struct __user *user_vm86, bool plus)
 	vm86->saved_sp0 = tsk->thread.sp0;
 	lazy_save_gs(vm86->regs32.gs);
 
+	hard_cond_local_irq_disable();
 	/* make room for real-mode segments */
 	preempt_disable();
 	tsk->thread.sp0 += 16;
@@ -376,6 +379,7 @@ static long do_sys_vm86(struct vm86plus_struct __user *user_vm86, bool plus)
 
 	update_task_stack(tsk);
 	preempt_enable();
+	hard_cond_local_irq_enable();
 
 	if (vm86->flags & VM86_SCREEN_BITMAP)
 		mark_screen_rdonly(tsk->mm);
