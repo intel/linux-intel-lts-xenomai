@@ -113,8 +113,16 @@ void exit_thread(struct task_struct *tsk)
 	if (bp) {
 		struct tss_struct *tss = &per_cpu(cpu_tss_rw, get_cpu());
 
-		t->io_bitmap_ptr = NULL;
+		/*
+		 * The caller may be preempted via I-pipe: to make
+		 * sure TIF_IO_BITMAP always denotes a valid I/O
+		 * bitmap when set, we clear it _before_ the I/O
+		 * bitmap pointer. No cache coherence issue ahead as
+		 * migration is currently locked (the primary domain
+		 * may never migrate either).
+		 */
 		clear_thread_flag(TIF_IO_BITMAP);
+		t->io_bitmap_ptr = NULL;
 		/*
 		 * Careful, clear this in the TSS too:
 		 */
