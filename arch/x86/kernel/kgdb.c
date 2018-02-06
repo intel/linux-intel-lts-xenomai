@@ -598,9 +598,9 @@ kgdb_notify(struct notifier_block *self, unsigned long cmd, void *ptr)
 	unsigned long flags;
 	int ret;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	ret = __kgdb_notify(ptr, cmd);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return ret;
 }
