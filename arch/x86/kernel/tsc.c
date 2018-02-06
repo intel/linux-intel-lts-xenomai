@@ -1109,7 +1109,7 @@ static struct clocksource clocksource_tsc_early = {
  * this one will immediately take over. We will only register if TSC has
  * been found good.
  */
-static struct clocksource clocksource_tsc = {
+struct clocksource clocksource_tsc = {
 	.name                   = "tsc",
 	.rating                 = 300,
 	.read                   = read_tsc,
