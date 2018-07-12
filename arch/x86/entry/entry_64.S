@@ -30,6 +30,7 @@
 #include <asm/hw_irq.h>
 #include <asm/page_types.h>
 #include <asm/irqflags.h>
+#include <asm/ipipe_base.h>
 #include <asm/paravirt.h>
 #include <asm/percpu.h>
 #include <asm/asm.h>
@@ -63,7 +64,12 @@ END(native_usergs_sysret64)
 .endm
 
 .macro TRACE_IRQS_IRETQ
-	TRACE_IRQS_FLAGS EFLAGS(%rsp)
+#ifdef CONFIG_TRACE_IRQFLAGS
+	btl	$9, EFLAGS(%rsp)	/* interrupts off? */
+	jnc	1f
+	TRACE_IRQS_ON_VIRT
+1:
+#endif
 .endm
 
 /*
@@ -77,7 +83,8 @@ END(native_usergs_sysret64)
  * make sure the stack pointer does not get reset back to the top
  * of the debug stack, and instead just reuses the current stack.
  */
-#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS)
+#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS) \
+	&& !defined(CONFIG_IPIPE)
 
 .macro TRACE_IRQS_OFF_DEBUG
 	call	debug_stack_set_zero
@@ -395,6 +402,7 @@ END(__switch_to_asm)
  */
 ENTRY(ret_from_fork)
 	UNWIND_HINT_EMPTY
+	HARD_COND_ENABLE_INTERRUPTS
 	movq	%rax, %rdi
 	call	schedule_tail			/* rdi: 'prev' task parameter */
 
@@ -667,7 +675,17 @@ common_interrupt:
 	addq	$-0x80, (%rsp)			/* Adjust vector to [-256, -1] range */
 	call	interrupt_entry
 	UNWIND_HINT_REGS indirect=1
+#ifdef CONFIG_IPIPE
+	call	__ipipe_handle_irq
+	testl	%eax, %eax
+	jnz	ret_from_intr
+	LEAVE_IRQ_STACK
+	testb	$3, CS(%rsp)
+	jz	retint_kernel_early
+	jmp	retint_user_early
+#else
 	call	do_IRQ	/* rdi points to pt_regs */
+#endif
 	/* 0(%rsp): old RSP */
 ret_from_intr:
 	DISABLE_INTERRUPTS(CLBR_ANY)
@@ -682,6 +700,7 @@ ret_from_intr:
 GLOBAL(retint_user)
 	mov	%rsp,%rdi
 	call	prepare_exit_to_usermode
+retint_user_early:
 	TRACE_IRQS_IRETQ
 
 GLOBAL(swapgs_restore_regs_and_return_to_usermode)
@@ -733,13 +752,18 @@ retint_kernel:
 	jnc	1f
 0:	cmpl	$0, PER_CPU_VAR(__preempt_count)
 	jnz	1f
+#ifdef CONFIG_IPIPE
+	call	__ipipe_preempt_schedule_irq
+#else
 	call	preempt_schedule_irq
+#endif
 	jmp	0b
 1:
 #endif
 	/*
 	 * The iretq could re-enable interrupts:
-	 */
+	*/
+retint_kernel_early:
 	TRACE_IRQS_IRETQ
 
 GLOBAL(restore_regs_and_return_to_kernel)
@@ -858,6 +882,28 @@ _ASM_NOKPROBE(common_interrupt)
 /*
  * APIC interrupts.
  */
+#ifdef CONFIG_IPIPE
+.macro apicinterrupt2 num sym
+ENTRY(\sym)
+	UNWIND_HINT_IRET_REGS
+	ASM_CLAC
+	pushq	$~(\num)
+.Lcommon_\sym:
+	call	interrupt_entry
+	UNWIND_HINT_REGS indirect=1
+	call	__ipipe_handle_irq
+	testl	%eax, %eax
+	jnz	ret_from_intr
+	LEAVE_IRQ_STACK
+	testb	$3, CS(%rsp)
+	jz	retint_kernel_early
+	jmp	retint_user_early
+END(\sym)
+.endm
+.macro apicinterrupt3 num sym do_sym
+apicinterrupt2 \num \sym
+.endm
+#else /* !CONFIG_IPIPE */
 .macro apicinterrupt3 num sym do_sym
 ENTRY(\sym)
 	UNWIND_HINT_IRET_REGS
@@ -870,6 +916,7 @@ ENTRY(\sym)
 END(\sym)
 _ASM_NOKPROBE(\sym)
 .endm
+#endif /* !CONFIG_IPIPE */
 
 /* Make sure APIC interrupt handlers end up in the irqentry section: */
 #define PUSH_SECTION_IRQENTRY	.pushsection .irqentry.text, "ax"
@@ -915,6 +962,14 @@ apicinterrupt THERMAL_APIC_VECTOR		thermal_interrupt		smp_thermal_interrupt
 apicinterrupt CALL_FUNCTION_SINGLE_VECTOR	call_function_single_interrupt	smp_call_function_single_interrupt
 apicinterrupt CALL_FUNCTION_VECTOR		call_function_interrupt		smp_call_function_interrupt
 apicinterrupt RESCHEDULE_VECTOR			reschedule_interrupt		smp_reschedule_interrupt
+#ifdef CONFIG_IPIPE
+apicinterrupt2 IPIPE_RESCHEDULE_VECTOR		ipipe_reschedule_interrupt
+apicinterrupt2 IPIPE_CRITICAL_VECTOR		ipipe_critical_interrupt
+#endif
+#endif
+
+#ifdef CONFIG_IPIPE
+apicinterrupt2 IPIPE_HRTIMER_VECTOR		ipipe_hrtimer_interrupt
 #endif
 
 apicinterrupt ERROR_APIC_VECTOR			error_interrupt			smp_error_interrupt
@@ -1087,10 +1142,14 @@ bad_gs:
 ENTRY(do_softirq_own_stack)
 	pushq	%rbp
 	mov	%rsp, %rbp
+	HARD_COND_DISABLE_INTERRUPTS
 	ENTER_IRQ_STACK regs=0 old_rsp=%r11
+	HARD_COND_ENABLE_INTERRUPTS
 	call	__do_softirq
+	HARD_COND_DISABLE_INTERRUPTS
 	LEAVE_IRQ_STACK regs=0
 	leaveq
+	HARD_COND_ENABLE_INTERRUPTS
 	ret
 ENDPROC(do_softirq_own_stack)
 

@@ -155,6 +155,9 @@ config X86
 	select HAVE_IOREMAP_PROT
 	select HAVE_IRQ_EXIT_ON_IRQ_STACK	if X86_64
 	select HAVE_IRQ_TIME_ACCOUNTING
+	select HAVE_IPIPE_SUPPORT		if X86_64
+	select HAVE_IPIPE_TRACER_SUPPORT
+	select IPIPE_HAVE_SAFE_THREAD_INFO if IPIPE
 	select HAVE_KERNEL_BZIP2
 	select HAVE_KERNEL_GZIP
 	select HAVE_KERNEL_LZ4
@@ -1032,6 +1035,8 @@ config SCHED_MC_PRIO
 	  This feature will have no effect on CPUs without this feature.
 
 	  If unsure say Y here.
+
+source "kernel/ipipe/Kconfig"
 
 config UP_LATE_INIT
        def_bool y

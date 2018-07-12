@@ -106,13 +106,18 @@
 
 #define LOCAL_TIMER_VECTOR		0xec
 
-#define NR_VECTORS			 256
+/* Interrupt pipeline IPIs */
+#define IPIPE_HRTIMER_VECTOR		0xeb
+#define IPIPE_RESCHEDULE_VECTOR		0xea
+#define IPIPE_CRITICAL_VECTOR		0xe9
 
-#ifdef CONFIG_X86_LOCAL_APIC
-#define FIRST_SYSTEM_VECTOR		LOCAL_TIMER_VECTOR
-#else
-#define FIRST_SYSTEM_VECTOR		NR_VECTORS
-#endif
+/*
+ * I-pipe: Lowest vector number which may be assigned to a special
+ * APIC IRQ. We must know this at build time.
+ */
+#define FIRST_SYSTEM_VECTOR		IPIPE_CRITICAL_VECTOR
+
+#define NR_VECTORS			 256
 
 /*
  * Size the maximum number of interrupts.

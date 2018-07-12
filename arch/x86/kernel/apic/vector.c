@@ -41,7 +41,7 @@ struct apic_chip_data {
 
 struct irq_domain *x86_vector_domain;
 EXPORT_SYMBOL_GPL(x86_vector_domain);
-static DEFINE_RAW_SPINLOCK(vector_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(vector_lock);
 static cpumask_var_t vector_searchmask;
 static struct irq_chip lapic_controller;
 static struct irq_matrix *vector_matrix;
@@ -121,7 +121,9 @@ static void apic_update_irq_cfg(struct irq_data *irqd, unsigned int vector,
 {
 	struct apic_chip_data *apicd = apic_chip_data(irqd);
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 
 	apicd->hw_irq_cfg.vector = vector;
 	apicd->hw_irq_cfg.dest_apicid = apic->calc_dest_apicid(cpu);
@@ -137,7 +139,9 @@ static void apic_update_vector(struct irq_data *irqd, unsigned int newvec,
 	struct irq_desc *desc = irq_data_to_desc(irqd);
 	bool managed = irqd_affinity_is_managed(irqd);
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 
 	trace_vector_update(irqd->irq, newvec, newcpu, apicd->vector,
 			    apicd->cpu);
@@ -227,7 +231,9 @@ assign_vector_locked(struct irq_data *irqd, const struct cpumask *dest)
 	unsigned int cpu = apicd->cpu;
 	int vector = apicd->vector;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 
 	/*
 	 * If the current target CPU is online and in the new requested
@@ -334,7 +340,9 @@ static void clear_irq_vector(struct irq_data *irqd)
 	bool managed = irqd_affinity_is_managed(irqd);
 	unsigned int vector = apicd->vector;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 
 	if (!vector)
 		return;
@@ -743,7 +751,9 @@ void lapic_online(void)
 {
 	unsigned int vector;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 
 	/* Online the vector matrix array for this CPU */
 	irq_matrix_online(vector_matrix);
@@ -814,13 +824,17 @@ static int apic_retrigger_irq(struct irq_data *irqd)
 
 void apic_ack_irq(struct irq_data *irqd)
 {
+#ifndef CONFIG_IPIPE
 	irq_move_irq(irqd);
-	ack_APIC_irq();
+#endif /* !CONFIG_IPIPE */
+	__ack_APIC_irq();
 }
 
 void apic_ack_edge(struct irq_data *irqd)
 {
+#ifndef CONFIG_IPIPE
 	irq_complete_move(irqd_cfg(irqd));
+#endif /* !CONFIG_IPIPE */
 	apic_ack_irq(irqd);
 }
 

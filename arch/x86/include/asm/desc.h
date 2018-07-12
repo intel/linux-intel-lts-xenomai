@@ -391,7 +391,7 @@ void alloc_intr_gate(unsigned int n, const void *addr);
 
 extern unsigned long system_vectors[];
 
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && !defined(CONFIG_IPIPE)
 DECLARE_PER_CPU(u32, debug_idt_ctr);
 static inline bool is_debug_idt_enabled(void)
 {

@@ -439,7 +439,17 @@ static inline void apic_set_eoi_write(void (*eoi_write)(u32 reg, u32 v)) {}
 
 extern void apic_ack_irq(struct irq_data *data);
 
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_SMP
+struct irq_data;
+void move_xxapic_irq(struct irq_data *data);
+#endif
+#define ack_APIC_irq() do { } while(0)
+static inline void __ack_APIC_irq(void)
+#else /* !CONFIG_IPIPE */
+#define __ack_APIC_irq() ack_APIC_irq()
 static inline void ack_APIC_irq(void)
+#endif /* CONFIG_IPIPE */
 {
 	/*
 	 * ack_APIC_irq() actually gets compiled as a single instruction
