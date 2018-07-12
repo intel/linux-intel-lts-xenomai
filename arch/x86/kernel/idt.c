@@ -116,6 +116,10 @@ static const __initconst struct idt_data apic_idts[] = {
 	INTG(CALL_FUNCTION_SINGLE_VECTOR, call_function_single_interrupt),
 	INTG(IRQ_MOVE_CLEANUP_VECTOR,	irq_move_cleanup_interrupt),
 	INTG(REBOOT_VECTOR,		reboot_interrupt),
+#ifdef CONFIG_IPIPE
+	INTG(IPIPE_RESCHEDULE_VECTOR,	ipipe_reschedule_interrupt),
+	INTG(IPIPE_CRITICAL_VECTOR,	ipipe_critical_interrupt),
+#endif
 #endif
 
 #ifdef CONFIG_X86_THERMAL_VECTOR
@@ -146,6 +150,9 @@ static const __initconst struct idt_data apic_idts[] = {
 #endif
 	INTG(SPURIOUS_APIC_VECTOR,	spurious_interrupt),
 	INTG(ERROR_APIC_VECTOR,		error_interrupt),
+#ifdef CONFIG_IPIPE
+	INTG(IPIPE_HRTIMER_VECTOR,	ipipe_hrtimer_interrupt),
+#endif
 #endif
 };
 
@@ -310,8 +317,15 @@ void __init idt_setup_apic_and_irq_gates(void)
 {
 	int i = FIRST_EXTERNAL_VECTOR;
 	void *entry;
+	unsigned int __maybe_unused cpu;
 
 	idt_setup_from_table(idt_table, apic_idts, ARRAY_SIZE(apic_idts), true);
+
+#ifdef CONFIG_SMP
+	for_each_possible_cpu(cpu)
+		per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
+			irq_to_desc(IRQ_MOVE_CLEANUP_VECTOR);
+#endif
 
 	for_each_clear_bit_from(i, system_vectors, FIRST_SYSTEM_VECTOR) {
 		entry = irq_entries_start + 8 * (i - FIRST_EXTERNAL_VECTOR);
