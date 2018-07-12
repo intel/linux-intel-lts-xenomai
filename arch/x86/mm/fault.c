@@ -1466,3 +1466,50 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	exception_exit(prev_state);
 }
 NOKPROBE_SYMBOL(do_page_fault);
+
+#ifdef CONFIG_IPIPE
+
+void __ipipe_pin_mapping_globally(unsigned long start, unsigned long end)
+{
+#ifdef CONFIG_X86_32
+	unsigned long next, addr = start;
+
+	do {
+		unsigned long flags;
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru)
+			vmalloc_sync_one(page_address(page), addr);
+		spin_unlock_irqrestore(&pgd_lock, flags);
+
+	} while (addr = next, addr != end);
+#else
+	unsigned long next, addr = start;
+	pgd_t *pgd, *pgd_ref;
+	struct page *page;
+
+	if (!(start >= VMALLOC_START && start < VMALLOC_END))
+		return;
+
+	do {
+		next = pgd_addr_end(addr, end);
+		pgd_ref = pgd_offset_k(addr);
+		if (pgd_none(*pgd_ref))
+			continue;
+		spin_lock(&pgd_lock);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd = page_address(page) + pgd_index(addr);
+			if (pgd_none(*pgd))
+				set_pgd(pgd, *pgd_ref);
+		}
+		spin_unlock(&pgd_lock);
+		addr = next;
+	} while (addr != end);
+
+	arch_flush_lazy_mmu_mode();
+#endif
+}
+
+#endif /* CONFIG_IPIPE */
