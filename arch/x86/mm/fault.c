@@ -1216,6 +1216,12 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
 	u32 pkey;
 
+#ifdef CONFIG_IPIPE
+	if (ipipe_root_domain != ipipe_head_domain) {
+		trace_hardirqs_on();
+		hard_local_irq_enable();
+	}
+#endif
 	tsk = current;
 	mm = tsk->mm;
 
