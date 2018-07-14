@@ -318,6 +318,133 @@ void __ipipe_halt_root(int use_mwait)
 }
 EXPORT_SYMBOL_GPL(__ipipe_halt_root);
 
+static inline void __ipipe_fixup_if(bool stalled, struct pt_regs *regs)
+{
+	/*
+	 * Have the saved hw state look like the domain stall bit, so
+	 * that __ipipe_unstall_iret_root() restores the proper
+	 * pipeline state for the root stage upon exit.
+	 */
+	if (stalled)
+		regs->flags &= ~X86_EFLAGS_IF;
+	else
+		regs->flags |= X86_EFLAGS_IF;
+}
+
+dotraplinkage int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags)
+{
+	bool entry_irqs_off = hard_irqs_disabled();
+	struct ipipe_domain *ipd;
+	unsigned long cr2;
+
+	if (trapnr == X86_TRAP_PF)
+		cr2 = native_read_cr2();
+
+	/*
+	 * KGDB and ftrace may poke int3/debug ops into the kernel
+	 * code. Trap those exceptions early, do conditional fixups to
+	 * the interrupt state depending on the current domain, let
+	 * the regular handler see them.
+	 */
+	if (unlikely(!user_mode(regs) &&
+		     (trapnr == X86_TRAP_DB || trapnr == X86_TRAP_BP))) {
+
+		if (ipipe_root_p)
+			goto root_fixup;
+
+		/*
+		 * Skip interrupt state fixup from the head domain,
+		 * but do call the regular handler which is assumed to
+		 * run fine within such context.
+		 */
+		return -1;
+	}
+
+	/*
+	 * Now that we have filtered out all debug traps which might
+	 * happen anywhere in kernel code in theory, detect attempts
+	 * to probe kernel memory (i.e. calls to probe_kernel_{read,
+	 * write}()). If that happened over the head domain, do the
+	 * fixup immediately then return right after upon success. If
+	 * that fails, the kernel is likely to crash but let's follow
+	 * the standard recovery procedure in that case anyway.
+	 */
+	if (unlikely(!ipipe_root_p && faulthandler_disabled())) {
+		if (fixup_exception(regs, trapnr))
+			return 1;
+	}
+
+	if (unlikely(__ipipe_notify_trap(trapnr, regs)))
+		return 1;
+
+	if (likely(ipipe_root_p)) {
+	root_fixup:
+		/*
+		 * If no head domain is installed, or in case we faulted in
+		 * the iret path of x86-32, regs->flags does not match the root
+		 * domain state. The fault handler may evaluate it. So fix this
+		 * up with the current state.
+		 */
+		local_save_flags(*flags);
+		__ipipe_fixup_if(raw_irqs_disabled_flags(*flags), regs);
+
+		/*
+		 * Sync Linux interrupt state with hardware state on
+		 * entry.
+		 */
+		if (entry_irqs_off)
+			local_irq_disable();
+	} else {
+		/* Plan for restoring the original flags at fault. */
+		*flags = regs->flags;
+
+		/*
+		 * Detect unhandled faults over the head domain,
+		 * switching to root so that it can handle the fault
+		 * cleanly.
+		 */
+		hard_local_irq_disable();
+		ipd = __ipipe_current_domain;
+		__ipipe_set_current_domain(ipipe_root_domain);
+
+		/* Sync Linux interrupt state with hardware state on entry. */
+		if (entry_irqs_off)
+			local_irq_disable();
+
+		ipipe_trace_panic_freeze();
+
+		/* Always warn about user land and unfixable faults. */
+		if (user_mode(regs) ||
+		    !search_exception_tables(instruction_pointer(regs))) {
+			printk(KERN_ERR "BUG: Unhandled exception over domain"
+			       " %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, instruction_pointer(regs));
+			dump_stack();
+			ipipe_trace_panic_dump();
+		} else if (IS_ENABLED(CONFIG_IPIPE_DEBUG)) {
+			/* Also report fixable ones when debugging is enabled. */
+			printk(KERN_WARNING "WARNING: Fixable exception over "
+			       "domain %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, instruction_pointer(regs));
+			dump_stack();
+			ipipe_trace_panic_dump();
+		}
+	}
+
+	if (trapnr == X86_TRAP_PF)
+		write_cr2(cr2);
+
+	return 0;
+}
+
+dotraplinkage
+void __ipipe_trap_epilogue(struct pt_regs *regs,
+			   unsigned long flags, unsigned long regs_flags)
+{
+	ipipe_restore_root(raw_irqs_disabled_flags(flags));
+	__ipipe_fixup_if(raw_irqs_disabled_flags(regs_flags), regs);
+}
+
 static inline int __ipipe_irq_from_vector(int vector, int *irq)
 {
 	struct irq_desc *desc;
