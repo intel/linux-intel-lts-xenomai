@@ -609,19 +609,19 @@ static inline void xsetbv(u32 index, u64 value)
 
 DECLARE_PER_CPU(bool, in_kernel_fpu);
 
-static void kernel_fpu_disable(void)
+static inline void kernel_fpu_disable(void)
 {
 	WARN_ON_FPU(this_cpu_read(in_kernel_fpu));
 	this_cpu_write(in_kernel_fpu, true);
 }
 
-static void kernel_fpu_enable(void)
+static inline void kernel_fpu_enable(void)
 {
 	WARN_ON_FPU(!this_cpu_read(in_kernel_fpu));
 	this_cpu_write(in_kernel_fpu, false);
 }
 
-static bool kernel_fpu_disabled(void)
+static inline bool kernel_fpu_disabled(void)
 {
 	return this_cpu_read(in_kernel_fpu);
 }
