@@ -646,8 +646,13 @@ ENTRY(interrupt_entry)
 
 1:
 	ENTER_IRQ_STACK old_rsp=%rdi save_ret=1
-	/* We entered an interrupt context - irqs are off: */
+#ifndef CONFIG_IPIPE
+	/* We entered an interrupt context - irqs are off unless
+	   pipelining is enabled, in which case we defer tracing until
+	   __ipipe_do_sync_stage() where the virtual IRQ state is
+	   updated for the root stage. */
 	TRACE_IRQS_OFF
+#endif
 
 	ret
 END(interrupt_entry)
