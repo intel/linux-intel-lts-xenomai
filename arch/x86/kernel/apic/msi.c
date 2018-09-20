@@ -64,7 +64,7 @@ static struct irq_chip pci_msi_controller = {
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
 	.irq_move		= move_xxapic_irq,
 #endif
-	.flags			= IRQCHIP_SKIP_SET_WAKE,
+	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 
 int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
@@ -165,7 +165,7 @@ static struct irq_chip pci_msi_ir_controller = {
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
 	.irq_move		= move_xxapic_irq,
 #endif
-	.flags			= IRQCHIP_SKIP_SET_WAKE,
+	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 
 static struct msi_domain_info pci_msi_ir_domain_info = {
@@ -210,7 +210,7 @@ static struct irq_chip dmar_msi_controller = {
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
 	.irq_move		= move_xxapic_irq,
 #endif
-	.flags			= IRQCHIP_SKIP_SET_WAKE,
+	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 
 static irq_hw_number_t dmar_msi_get_hwirq(struct msi_domain_info *info,
@@ -310,7 +310,7 @@ static struct irq_chip hpet_msi_controller __ro_after_init = {
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
 	.irq_move = move_xxapic_irq,
 #endif
-	.flags = IRQCHIP_SKIP_SET_WAKE,
+	.flags = IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 
 static irq_hw_number_t hpet_msi_get_hwirq(struct msi_domain_info *info,
