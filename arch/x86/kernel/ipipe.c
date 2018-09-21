@@ -95,7 +95,6 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 
 	regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
 	regs->orig_ax = ~__ipipe_get_irq_vector(irq);
-	regs->sp = current_stack_pointer; /* stack_overflow_check(). */
 	handler = (typeof(handler))cookie;
 	handler(regs);
 }
