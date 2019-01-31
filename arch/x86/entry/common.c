@@ -294,7 +294,8 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 	 * want to run them exactly once per syscall exit with IRQs on.
 	 */
 	if (unlikely((!IS_ENABLED(CONFIG_IPIPE) ||
-		      syscall_get_nr(current, regs) < NR_syscalls) &&
+		      syscall_get_nr(current, regs) <
+				ipipe_root_nr_syscalls(ti)) &&
 		     (cached_flags & SYSCALL_EXIT_WORK_FLAGS)))
 		syscall_slow_exit_work(regs, cached_flags);
 

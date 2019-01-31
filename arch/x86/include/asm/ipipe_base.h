@@ -115,6 +115,11 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
       return ul;
 }
 
+#ifdef CONFIG_IA32_EMULATION
+#define ipipe_root_nr_syscalls(ti)	\
+	((ti->status & TS_COMPAT) ? IA32_NR_syscalls : NR_syscalls)
+#endif /* CONFIG_IA32_EMULATION */
+
 #endif	/* X86_64 */
 
 struct pt_regs;
