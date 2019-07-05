@@ -247,18 +247,28 @@ void __init __ipipe_enable_pipeline(void)
 }
 
 #ifdef CONFIG_SMP
+int irq_activate(struct irq_desc *desc);
 
-void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
+int ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
-	if (ipipe_virtual_irq_p(irq) ||
-	    irq_get_chip(irq)->irq_set_affinity == NULL)
-		return;
+	struct irq_desc *desc;
+	struct irq_chip *chip;
 
 	cpumask_and(&cpumask, &cpumask, cpu_online_mask);
-	if (WARN_ON_ONCE(cpumask_empty(&cpumask)))
-		return;
+	if (cpumask_empty(&cpumask) || ipipe_virtual_irq_p(irq))
+		return -EINVAL;
 
-	irq_get_chip(irq)->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
+	desc = irq_to_desc(irq);
+	if (desc == NULL)
+		return -EINVAL;
+
+	chip = irq_desc_get_chip(desc);
+	if (chip->irq_set_affinity == NULL)
+		return -ENOSYS;
+
+	chip->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ipipe_set_irq_affinity);
 
