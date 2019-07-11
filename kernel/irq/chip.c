@@ -1087,6 +1087,7 @@ int ipipe_enable_irq(unsigned int irq)
 	struct irq_desc *desc;
 	struct irq_chip *chip;
 	unsigned long flags;
+	int err;
 
 	desc = irq_to_desc(irq);
 	if (desc == NULL)
@@ -1097,6 +1098,10 @@ int ipipe_enable_irq(unsigned int irq)
 	if (chip->irq_startup && (desc->istate & IPIPE_IRQS_NEEDS_STARTUP)) {
 
 		ipipe_root_only();
+
+		err = irq_activate(desc);
+		if (err)
+			return err;
 
 		raw_spin_lock_irqsave(&desc->lock, flags);
 		if (desc->istate & IPIPE_IRQS_NEEDS_STARTUP) {
