@@ -253,6 +253,7 @@ int ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
 	struct irq_desc *desc;
 	struct irq_chip *chip;
+	int err;
 
 	cpumask_and(&cpumask, &cpumask, cpu_online_mask);
 	if (cpumask_empty(&cpumask) || ipipe_virtual_irq_p(irq))
@@ -265,6 +266,10 @@ int ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 	chip = irq_desc_get_chip(desc);
 	if (chip->irq_set_affinity == NULL)
 		return -ENOSYS;
+
+	err = irq_activate(desc);
+	if (err)
+		return err;
 
 	chip->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
 
