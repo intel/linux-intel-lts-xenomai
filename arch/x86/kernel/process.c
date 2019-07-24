@@ -419,7 +419,9 @@ static __always_inline void __speculation_ctrl_update(unsigned long tifp,
 	u64 msr = x86_spec_ctrl_base;
 	bool updmsr = false;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_irqs_disabled();
+#endif
 
 	/*
 	 * If TIF_SSBD is different, select the proper mitigation
@@ -475,9 +477,9 @@ void speculation_ctrl_update(unsigned long tif)
 	unsigned long flags;
 
 	/* Forced update. Make sure all relevant TIF flags are different */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	__speculation_ctrl_update(~tif, tif);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /* Called from seccomp/prctl update */
