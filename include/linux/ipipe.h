@@ -204,10 +204,6 @@ int __ipipe_notify_user_intreturn(void);
 
 #define __ipipe_serial_debug(__fmt, __args...)	raw_printk(__fmt, ##__args)
 
-#ifndef ipipe_root_nr_syscalls
-#define ipipe_root_nr_syscalls(ti)	NR_syscalls
-#endif
-
 struct ipipe_trap_data {
 	int exception;
 	struct pt_regs *regs;
@@ -716,6 +712,10 @@ void __ipipe_pin_mapping_globally(unsigned long start,
 static inline void __ipipe_pin_mapping_globally(unsigned long start,
 						unsigned long end)
 { }
+#endif
+
+#ifndef ipipe_root_nr_syscalls
+#define ipipe_root_nr_syscalls(ti)	NR_syscalls
 #endif
 
 #endif	/* !__LINUX_IPIPE_H */
