@@ -20,6 +20,9 @@
 #include <trace/events/preemptirq.h>
 
 #if defined(CONFIG_IRQSOFF_TRACER) || defined(CONFIG_PREEMPT_TRACER)
+
+#include "preemptirqs_onoff_helper.h"
+
 static struct trace_array		*irqsoff_trace __read_mostly;
 static int				tracer_enabled __read_mostly;
 
@@ -612,6 +615,8 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 {
 	unsigned int pc = preempt_count();
 
+	preemptirqs_onoff_helper(IRQS_ON);
+
 	if (!preempt_trace(pc) && irq_trace())
 		stop_critical_timing(a0, a1, pc);
 }
@@ -622,6 +627,9 @@ void tracer_hardirqs_off(unsigned long a0, unsigned long a1)
 
 	if (!preempt_trace(pc) && irq_trace())
 		start_critical_timing(a0, a1, pc);
+
+	preemptirqs_onoff_helper(IRQS_OFF);
+
 }
 
 static int irqsoff_tracer_init(struct trace_array *tr)
@@ -662,6 +670,8 @@ void tracer_preempt_on(unsigned long a0, unsigned long a1)
 {
 	int pc = preempt_count();
 
+	preemptirqs_onoff_helper(PREEMPT_ON);
+
 	if (preempt_trace(pc) && !irq_trace())
 		stop_critical_timing(a0, a1, pc);
 }
@@ -672,6 +682,9 @@ void tracer_preempt_off(unsigned long a0, unsigned long a1)
 
 	if (preempt_trace(pc) && !irq_trace())
 		start_critical_timing(a0, a1, pc);
+
+	preemptirqs_onoff_helper(PREEMPT_OFF);
+
 }
 
 static int preemptoff_tracer_init(struct trace_array *tr)

@@ -234,6 +234,48 @@ config PREEMPT_TRACER
 	  enabled. This option and the irqs-off timing option can be
 	  used together or separately.)
 
+config IRQS_ONOFF_TRACER
+	bool "Interrupts-on/off Tracer"
+	default n
+	depends on IRQSOFF_TRACER
+	help
+	  This option adds two new tracepoints "irqsoff" and "irqson".
+
+	  They can be used as normal trace events and can also be used
+	  together with a synthetic event to generate irqsoff histogram.
+
+	  They are disabled by default.
+
+	    echo 0 > /sys/kernel/debug/tracing/events/preemptirqs_onoff/enable
+
+	  (Note that kernel size and overhead increase with this option
+	  enabled.)
+
+config PREEMPT_ONOFF_TRACER
+	bool "Preemption-on/off Tracer"
+	default n
+	depends on PREEMPT_TRACER
+	help
+	  This option adds two new tracepoints "preemptoff" and "preempton".
+
+	  They can be used as normal trace events and can also be used
+	  together with a synthetic event to generate preemptoff histogram.
+
+	  They are disabled by default.
+
+	    echo 0 > /sys/kernel/debug/tracing/events/preemptirqs_onoff/enable
+
+	  This option and the IRQS_ONOFF_TRACER option can be used together or
+	  separately. If they are used together, two new tracepoints will
+	  become avaliable which are "preemptandirqsoff" and "preemptorirqson".
+	  They can be used as normal trace events and can also be used together
+	  with a synthetic event to generate histogram for the case in which
+	  both irqs and preemption are off.
+
+	  (Note that kernel size and overhead increase with this option
+	  enabled. This option and the irqs-off timing option can be
+	  used together or separately.)
+
 config SCHED_TRACER
 	bool "Scheduling Latency Tracer"
 	select GENERIC_TRACER
