@@ -4258,6 +4258,63 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_drop_caches_fops,
 			"0x%08llx\n");
 
 static int
+i915_idle_freq_get(void *data, u64 *val)
+{
+
+	struct drm_i915_private *dev_priv = data;
+
+	if (INTEL_GEN(dev_priv) < 6)
+		return -ENODEV;
+
+	*val = intel_gpu_freq(dev_priv, dev_priv->gt_pm.rps.idle_freq);
+	return 0;
+}
+
+static int
+i915_idle_freq_set(void *data, u64 val)
+{
+	struct drm_i915_private *dev_priv = data;
+	u32 hw_max, hw_min;
+	int ret;
+
+if (INTEL_GEN(dev_priv) < 6)
+	return -ENODEV;
+
+	DRM_DEBUG_DRIVER("Manually setting idle freq to %llu\n", val);
+
+	ret = mutex_lock_interruptible(&dev_priv->pcu_lock);
+
+	if (ret)
+		return ret;
+
+	/*
+	 * Turbo will still be enabled, but won't go below the set value.
+	 */
+	val = intel_freq_opcode(dev_priv, val);
+	hw_max = dev_priv->gt_pm.rps.max_freq;
+	hw_min = dev_priv->gt_pm.rps.min_freq;
+
+	if (val < hw_min || val > hw_max) {
+		mutex_unlock(&dev_priv->pcu_lock);
+		return -EINVAL;
+	}
+
+	dev_priv->gt_pm.rps.idle_freq = val;
+
+	if (intel_set_rps(dev_priv, val))
+		DRM_DEBUG_DRIVER("failed to update RPS to new idle\n");
+
+	mutex_unlock(&dev_priv->pcu_lock);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_idle_freq_fops,
+		i915_idle_freq_get, i915_idle_freq_set,
+		"%llu\n");
+
+
+static int
 i915_cache_sharing_get(void *data, u64 *val)
 {
 	struct drm_i915_private *dev_priv = data;
@@ -4818,6 +4875,7 @@ static const struct i915_debugfs_files {
 	const struct file_operations *fops;
 } i915_debugfs_files[] = {
 	{"i915_wedged", &i915_wedged_fops},
+	{"i915_idle_freq", &i915_idle_freq_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},
 	{"i915_ring_test_irq", &i915_ring_test_irq_fops},
