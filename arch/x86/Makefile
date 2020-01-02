@@ -337,3 +337,6 @@ define archhelp
   echo  '                  FDARGS="..."  arguments for the booted kernel'
   echo  '                  FDINITRD=file initrd for the booted kernel'
 endef
+
+KBUILD_CFLAGS += -Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+core-$(CONFIG_XENOMAI) += arch/x86/xenomai/
